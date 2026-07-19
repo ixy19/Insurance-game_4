@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>5分鐘 Risk Score & Claim Simulator</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-light: #eff6ff;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --warning: #ea580c;
+            --dark: #0f172a;
+            --gray: #64748b;
+            --light: #f8fafc;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f1f5f9;
+            color: var(--dark);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            padding: 30px;
+            box-sizing: border-box;
+        }
+        h1 {
+            text-align: center;
+            color: var(--primary);
+            margin-bottom: 5px;
+            font-size: 28px;
+            font-weight: 800;
+        }
+        .subtitle {
+            text-align: center;
+            color: var(--gray);
+            margin-top: 0;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 25px;
+        }
+        @media (min-width: 768px) {
+            .grid-layout {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        /* 表單樣式 */
+        .card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 20px;
+        }
+        .card-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: var(--primary);
+            border-bottom: 2px solid var(--primary-light);
+            padding-bottom: 8px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #334155;
+        }
+        select, input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        /* 按鈕 */
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 15px;
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+        .btn-claim {
+            background: var(--danger);
+            color: white;
+            margin-top: 10px;
+        }
+        .btn-claim:hover {
+            background: #b91c1c;
+        }
+        /* 視覺呈現區 */
+        .visual-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        #radarCanvas {
+            max-width: 100%;
+            background: white;
+        }
+        /* Claim 模擬反饋 */
+        .claim-box {
+            width: 100%;
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 5px solid var(--danger);
+            background: #fef2f2;
+            display: none;
+            box-sizing: border-box;
+        }
+        .blood-active {
+            border-left-color: var(--success);
+            background: #f0fdf4;
+        }
+        .legend {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 10px;
+            font-size: 12px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>5分鐘 Risk Score & Claim Simulator</h1>
+    <p class="subtitle">📊 輸入基本財務與保障，一鍵模擬「突發無法工作6個月」的免疫力 🎲</p>
+
+    <div class="grid-layout">
+        <!-- 左側：輸入表單 -->
+        <div class="card">
+            <div class="card-title">✍️ 輸入基本狀況</div>
+            
+            <div class="form-group">
+                <label>1. 平均月收入 (USD)</label>
+                <input type="number" id="input-income" value="8000">
+            </div>
+
+            <div class="form-group">
+                <label>2. 每月固定支出 (房貸/生活費/育兒)</label>
+                <input type="number" id="input-expense" value="5000">
+            </div>
+
+            <div class="form-group">
+                <label>3. 目前手頭緊急預備金 (活存)</label>
+                <input type="number" id="input-savings" value="15000">
+            </div>
+
+            <div class="form-group">
+                <label>4. 您的家庭責任狀況</label>
+                <select id="input-family">
+                    <option value="single">單身無家累 (責任較低)</option>
+                    <option value="spouse">有配偶/有房貸 (責任中等)</option>
+                    <option value="kids" selected>有配偶、小孩與房貸 (責任極大)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>5. 目前已擁有的保障 (可複選)</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="has-term" checked> 壽險 (Life Insurance)
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="has-disability"> 收入中斷/失能險 (Disability)
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="has-ci" checked> 重大疾病險 (Critical Illness)
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="has-medical" checked> 高額醫療險 (Health/Medical)
+                    </label>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" onclick="calculateRisk()">1. 產生我的保障雷達圖</button>
+            <button class="btn btn-claim" onclick="simulateClaim()">💥 2. 模擬：假如我今天突然無法工作6個月</button>
+        </div>
+
+        <!-- 右側：雷達圖與 Claim 模擬回饋 -->
+        <div class="visual-panel">
+            <div class="card-title" style="width: 100%; text-align: center;">🛡️ 我的安全防禦雷達圖</div>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: rgba(37, 99, 235, 0.2); border: 2px solid var(--primary);"></div>
+                    <span>理想安全防禦力</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: rgba(220, 38, 38, 0.4); border: 2px solid var(--danger);"></div>
+                    <span>我目前的防禦力</span>
+                </div>
+            </div>
+
+            <canvas id="radarCanvas" width="320" height="320"></canvas>
+
+            <!-- Claim 模擬彈出訊息 -->
+            <div id="claim-result" class="claim-box">
+                <h3 id="claim-title" style="margin-top: 0; font-size: 16px;"></h3>
+                <p id="claim-desc" style="font-size: 13.5px; line-height: 1.5; margin-bottom: 0;"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('radarCanvas');
+    const ctx = canvas.getContext('2d');
+    const center = 160;
+    const radius = 110;
+
+    // 雷達圖的五個維度
+    const labels = ["身故保障", "收入替代", "重大疾病", "醫療開銷", "現金預備金"];
+
+    // 預設資料
+    let userStats = [30, 10, 40, 80, 50]; // 滿分均為 100
+
+    // 初始化繪製
+    window.onload = function() {
+        calculateRisk();
+    };
+
+    function calculateRisk() {
+        // 隱藏之前的 Claim 結果
+        document.getElementById('claim-result').style.display = 'none';
+
+        const income = parseFloat(document.getElementById('input-income').value) || 0;
+        const expense = parseFloat(document.getElementById('input-expense').value) || 0;
+        const savings = parseFloat(document.getElementById('input-savings').value) || 0;
+        const family = document.getElementById('input-family').value;
+
+        const hasTerm = document.getElementById('has-term').checked;
+        const hasDisability = document.getElementById('has-disability').checked;
+        const hasCI = document.getElementById('has-ci').checked;
+        const hasMedical = document.getElementById('has-medical').checked;
+
+        // 計算各維度分數 (0~100)
+        
+        // 1. 身故保障分數 (壽險)
+        let deathScore = 0;
+        if (hasTerm) {
+            deathScore = family === 'single' ? 100 : (family === 'spouse' ? 80 : 60);
+        } else {
+            deathScore = family === 'single' ? 40 : 10; 
+        }
+
+        // 2. 收入替代分數 (失能險)
+        let incomeScore = hasDisability ? 90 : 10;
+
+        // 3. 重大疾病分數 (重疾險)
+        let ciScore = hasCI ? 85 : 15;
+
+        // 4. 醫療開銷分數 (醫療險)
+        let medScore = hasMedical ? 95 : 20;
+
+        // 5. 現金預備金分數 (活存可支撐幾個月固定支出)
+        let monthsOfSavings = expense > 0 ? (savings / expense) : 6;
+        let savingsScore = Math.min(100, Math.round((monthsOfSavings / 6) * 100)); // 滿分是存夠 6 個月
+
+        userStats = [deathScore, incomeScore, ciScore, medScore, savingsScore];
+
+        drawRadar(userStats);
+    }
+
+    function drawRadar(stats) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 1. 繪製背景五角星網格
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 1;
+        for (let j = 1; j <= 5; j++) {
+            let r = (radius / 5) * j;
+            ctx.beginPath();
+            for (let i = 0; i < 5; i++) {
+                let angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
+                let x = center + r * Math.cos(angle);
+                let y = center + r * Math.sin(angle);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.stroke();
+        }
+
+        // 2. 繪製軸線
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+            let angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
+            ctx.moveTo(center, center);
+            ctx.lineTo(center + radius * Math.cos(angle), center + radius * Math.sin(angle));
+        }
+        ctx.stroke();
+
+        // 3. 繪製「理想防禦範圍」（滿分 100 綠色圈）
+        ctx.fillStyle = 'rgba(37, 99, 235, 0.05)';
+        ctx.strokeStyle = 'rgba(37, 99, 235, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+            let angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
+            let x = center + radius * Math.cos(angle);
+            let y = center + radius * Math.sin(angle);
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 4. 繪製「使用者實際保障範圍」（紅色圈）
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.3)';
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+            let angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
+            let pct = stats[i] / 100;
+            let x = center + (radius * pct) * Math.cos(angle);
+            let y = center + (radius * pct) * Math.sin(angle);
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 5. 繪製端點小圓圈
+        for (let i = 0; i < 5; i++) {
+            let angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
+            let pct = stats[i] / 100;
+            let x = center + (radius * pct) * Math.cos(angle);
+            let y = center + (radius * pct) * Math.sin(angle);
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // 6. 繪製文字標籤
+        ctx.fillStyle = '#1e293b';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        for (let i = 0; i < 5; i++) {
+            let angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
+            let offsetFactor = 1.25;
+            // 微調個別標籤位置避免重疊
+            if (i === 1 || i === 4) offsetFactor = 1.35;
+            let x = center + (radius * offsetFactor) * Math.cos(angle);
+            let y = center + (radius * offsetFactor) * Math.sin(angle);
+            
+            // 修正基線
+            if (angle === -Math.PI/2) {
+                y -= 2;
+            } else if (y > center) {
+                y += 8;
+            }
+            ctx.fillText(labels[i], x, y);
+        }
+    }
+
+    // 2. Claim 模擬器核心觸發
+    function simulateClaim() {
+        // 先動態更新一次雷達圖
+        calculateRisk();
+
+        const income = parseFloat(document.getElementById('input-income').value) || 0;
+        const expense = parseFloat(document.getElementById('input-expense').value) || 0;
+        const savings = parseFloat(document.getElementById('input-savings').value) || 0;
+
+        const hasDisability = document.getElementById('has-disability').checked;
+        const hasCI = document.getElementById('has-ci').checked;
+
+        const claimBox = document.getElementById('claim-result');
+        const claimTitle = document.getElementById('claim-title');
+        const claimDesc = document.getElementById('claim-desc');
+
+        // 模擬 6 個月無法工作的情況
+        let totalLossIncome = income * 6; // 損失收入
+        let totalExpense = expense * 6;     // 這半年的剛性開銷
+        let financialGap = totalExpense;   // 還需要多少錢才能活下來
+
+        claimBox.style.display = 'block';
+
+        if (hasDisability) {
+            // 擁有失能險
+            claimBox.className = "claim-box blood-active";
+            claimTitle.innerHTML = "🟢 【補血成功！】大夫，我還有救！";
+            claimTitle.style.color = "var(--success)";
+            
+            let payout = totalLossIncome * 0.6; // 假設失能險給付 60% 薪資
+            let finalLoss = totalExpense - payout;
+
+            if (savings >= finalLoss) {
+                claimDesc.innerHTML = `
+                    🚨 <strong>模擬情境：</strong>你今天起突然因傷病無法工作 6 個月。<br>
+                    🛡️ <strong>保單啟動：</strong>你的 <strong>Disability (收入中斷/失能險)</strong> 立刻啟動「補血」功能，每月為你撥付 60% 薪資補貼 (共領取 <strong>$${payout.toLocaleString()}</strong>)！<br>
+                    💰 <strong>財務現狀：</strong>扣除保險補貼後，你只需自付 $${finalLoss.toLocaleString()}。你手頭的 $${savings.toLocaleString()} 存款完全可以輕鬆覆蓋，成功安穩度過危機！
+                `;
+            } else {
+                claimDesc.innerHTML = `
+                    🚨 <strong>模擬情境：</strong>你今天起突然因傷病無法工作 6 個月。<br>
+                    🛡️ <strong>保單啟動：</strong>你的 <strong>Disability</strong> 幫你補血了 <strong>$${payout.toLocaleString()}</strong>。<br>
+                    ⚠️ <strong>警告：</strong>但由於你的現金預備金 ($${savings.toLocaleString()}) 太低，即使有保險，剩餘的自付額依然會將你的活存完全抽乾！建議提高活存，或者調高失能保障額度。
+                `;
+            }
+
+        } else {
+            // 沒有失能險 (裸奔)
+            claimBox.className = "claim-box";
+            claimTitle.innerHTML = "🔴 【失血警告！】財務主動脈破裂";
+            claimTitle.style.color = "var(--danger)";
+
+            if (savings >= totalExpense) {
+                claimDesc.innerHTML = `
+                    🚨 <strong>模擬情境：</strong>你今天起突然因傷病無法工作 6 個月。<br>
+                    ❌ <strong>保單缺口：</strong>你<strong>沒有</strong>任何收入中斷/失能保險，保險補血量為 <strong>$0</strong>！<br>
+                    💸 <strong>財務代價：</strong>你被迫完全透支活存。半年內你必須從存款中<strong>硬生生挖走 $${totalExpense.toLocaleString()}</strong>。雖然活存撐過去了，但你辛苦積攢的理財本金瞬間化為烏有，防禦力歸零！
+                `;
+            } else {
+                let shortfall = totalExpense - savings;
+                claimDesc.innerHTML = `
+                    🚨 <strong>模擬情境：</strong>你今天起突然因傷病無法工作 6 個月。<br>
+                    ❌ <strong>嚴重破產危機：</strong>你<strong>沒有</strong>失能險。半年固定開銷高達 $${totalExpense.toLocaleString()}，而你的手頭存款只有 $${savings.toLocaleString()}。<br>
+                    ☠️ <strong>財務缺口：$${shortfall.toLocaleString()}</strong>！這意味著在第 ${(savings/expense).toFixed(1)} 個月時，你將面臨房貸斷供、無錢可用的絕境，被迫向親友借錢或面臨信用破產。
+                `;
+            }
+        }
+    }
+</script>
+
+</body>
+</html>
